@@ -1,7 +1,5 @@
-import express from 'express';
-import dotenv from 'dotenv';
-
-dotenv.config();
+const express = require('express');
+require('dotenv').config();
 
 const app = express();
 app.use(express.json());
@@ -11,9 +9,9 @@ const VERIFY_TOKEN = process.env.VERIFY_TOKEN || 'raghava_secret_token_2026';
 const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 
-// Root route for uptime & health checks
+// Root health check
 app.get('/', (req, res) => {
-  res.status(200).send('Raghava Webhook Engine is online and operational.');
+  res.status(200).send('Raghava Webhook Engine is online.');
 });
 
 // Meta Webhook Verification (GET /webhook)
@@ -32,29 +30,33 @@ app.get('/webhook', (req, res) => {
   res.sendStatus(400);
 });
 
-// Helper: Send Meta Graph API request
+// Dispatcher to Meta Graph API
 async function callWhatsAppAPI(payload) {
-  const response = await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${META_ACCESS_TOKEN}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(payload)
-  });
+  try {
+    const response = await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${META_ACCESS_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
 
-  const data = await response.json();
-  if (!response.ok) {
-    console.error('WhatsApp API Error:', JSON.stringify(data, null, 2));
-  } else {
-    console.log('Message delivered successfully:', data.messages?.[0]?.id);
+    const data = await response.json();
+    if (!response.ok) {
+      console.error('WhatsApp API Error:', JSON.stringify(data, null, 2));
+    } else {
+      console.log('Message delivered successfully:', data.messages?.[0]?.id);
+    }
+    return data;
+  } catch (err) {
+    console.error('Fetch execution error:', err);
   }
-  return data;
 }
 
-// Helper: Send Plain Text Message
+// Send Plain Text
 async function sendTextMessage(toPhone, messageText) {
-  const cleanPhone = toPhone.replace(/\D/g, ''); // Ensure digits only
+  const cleanPhone = toPhone.replace(/\D/g, ''); // Digits only
 
   const payload = {
     messaging_product: 'whatsapp',
@@ -67,9 +69,9 @@ async function sendTextMessage(toPhone, messageText) {
   return await callWhatsAppAPI(payload);
 }
 
-// Helper: Send Interactive Quick-Reply Buttons
+// Send Interactive Quick-Reply Buttons
 async function sendProjectZones(toPhone) {
-  const cleanPhone = toPhone.replace(/\D/g, ''); // Ensure digits only
+  const cleanPhone = toPhone.replace(/\D/g, ''); // Digits only
 
   const payload = {
     messaging_product: 'whatsapp',
@@ -87,21 +89,21 @@ async function sendProjectZones(toPhone) {
             type: 'reply',
             reply: {
               id: 'btn_east',
-              title: 'East Zone' // Must be <= 20 chars
+              title: 'East Zone'
             }
           },
           {
             type: 'reply',
             reply: {
               id: 'btn_west',
-              title: 'West Zone' // Must be <= 20 chars
+              title: 'West Zone'
             }
           },
           {
             type: 'reply',
             reply: {
               id: 'btn_north',
-              title: 'North Zone' // Must be <= 20 chars
+              title: 'North Zone'
             }
           }
         ]
@@ -112,9 +114,8 @@ async function sendProjectZones(toPhone) {
   return await callWhatsAppAPI(payload);
 }
 
-// Meta Webhook Message Receiver (POST /webhook)
+// Webhook Event Receiver (POST /webhook)
 app.post('/webhook', async (req, res) => {
-  // Always return 200 OK immediately to acknowledge receipt to Meta
   res.status(200).send('EVENT_RECEIVED');
 
   try {
@@ -126,12 +127,12 @@ app.post('/webhook', async (req, res) => {
 
       if (changes?.messages && changes.messages[0]) {
         const msg = changes.messages[0];
-        const fromPhone = msg.from; // Sender's phone number
+        const fromPhone = msg.from;
         const messageType = msg.type;
 
         console.log(`Incoming message from ${fromPhone} [type: ${messageType}]`);
 
-        // Case 1: User clicked an interactive quick-reply button
+        // Handle Interactive Quick-Reply Button Click
         if (messageType === 'interactive' && msg.interactive?.type === 'button_reply') {
           const selectedButtonId = msg.interactive.button_reply.id;
 
@@ -143,14 +144,14 @@ app.post('/webhook', async (req, res) => {
             await sendTextMessage(fromPhone, 'You selected North Zone. Premium gated community villas coming soon.');
           }
         } 
-        // Case 2: Standard incoming text message
+        // Handle Inbound Text
         else if (messageType === 'text') {
-          const incomingText = msg.text.body.toLowerCase().trim();
+          const incomingText = (msg.text.body || '').toLowerCase().trim();
 
           if (incomingText.includes('hi') || incomingText.includes('hello') || incomingText.includes('hey')) {
             await sendProjectZones(fromPhone);
           } else {
-            await sendTextMessage(fromPhone, `Thank you for reaching out to Raghava. Reply "Hi" anytime to explore our project portfolio.`);
+            await sendTextMessage(fromPhone, 'Thank you for reaching out to Raghava. Reply "Hi" anytime to explore our project portfolio.');
           }
         }
       }
