@@ -1,18 +1,17 @@
 {
-  "name": "raghava-backend",
+  "name": "raghava-speed-to-lead-whatsapp",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "description": "Speed-to-lead WhatsApp qualification assistant for Raghava Projects",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18.0.0"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
   "dependencies": {
-    "axios": "^1.20.0",
-    "dotenv": "^17.4.2",
-    "express": "^5.2.1"
+    "dotenv": "^16.6.1",
+    "express": "^4.22.2"
   }
 }
